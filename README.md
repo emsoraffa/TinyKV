@@ -13,4 +13,12 @@ make
 
 ## Run
 
-./src/tinykv
+./tinykv
+
+## How to use
+
+TinyKV supports two different commands: put/get.
+
+To use the put command use the following format
+
+./tinyKV put {key} {value} {W}
