@@ -1,12 +1,16 @@
 #pragma once
-#include <string>
+#include "tinykv.grpc.pb.h"
+#include <grpcpp/grpcpp.h>
+#include <memory>
 
 class Client {
 public:
-  void put(std::string key, std::string value);
-  std::string get(std::string key);
-  std::string deleteKeyValue(std::string key);
+  // Setup connection
+  Client(std::shared_ptr<grpc::Channel> channel);
+
+  // The only action we can take
+  bool ping();
 
 private:
-  void getNode();
+  std::unique_ptr<tinykv::TinyKV::Stub> stub_;
 };

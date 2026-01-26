@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package tinykv;
+
+service TinyKV {
+  rpc Ping (PingRequest) returns (PingResponse) {}
+}
+
+// MESSAGES
+
+message PingRequest {} 
+
+message PingResponse {
+  bool is_ready = 1;
+}

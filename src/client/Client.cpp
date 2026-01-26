@@ -1,18 +1,27 @@
 #include "Client.h"
 #include <iostream>
 
-void Client::put(std::string key, std::string value) {
-  std::cout << "Setting key: " << key << " and value: " << value << std::endl;
-}
+using grpc::ClientContext;
+using grpc::Status;
+using tinykv::PingRequest;
+using tinykv::PingResponse;
 
-std::string Client::get(std::string key) {
-  std::cout << "Retrieving value for key: " << key << std::endl;
-  return "some_value";
-}
+Client::Client(std::shared_ptr<grpc::Channel> channel)
+    : stub_(tinykv::TinyKV::NewStub(channel)) {}
 
-std::string Client::deleteKeyValue(std::string key) {
-  std::cout << "Deleting value for key: " << key << std::endl;
-  return "deleted";
-}
+bool Client::ping() {
+  PingRequest request;
+  PingResponse reply;
+  ClientContext context;
 
-void Client::getNode() { std::cout << "Retrieving node" << std::endl; }
+  // The magic line that sends data over the network
+  Status status = stub_->Ping(&context, request, &reply);
+
+  if (status.ok()) {
+    std::cout << "[Client] Ping success! Server is ready." << std::endl;
+    return reply.is_ready();
+  } else {
+    std::cout << "[Client] Ping failed." << std::endl;
+    return false;
+  }
+}

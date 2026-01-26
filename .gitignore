@@ -1,4 +1,7 @@
 /build
+/local_headers
+refresh_protos.sh
+compile_flags.txt
 # Prerequisites
 *.d
 

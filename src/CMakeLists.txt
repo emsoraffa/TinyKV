@@ -1,8 +1,13 @@
-# src/CMakeLists.txt
-
-# Create the executable named 'TinyKV' from main.cpp
+# --- The Client ---
 add_executable(tinykv_client
     client/main.cpp
     client/Client.cpp
 )
-target_link_libraries(tinykv_client grpc++ ...)
+# We only link the proto lib (it carries the gRPC dependencies now)
+target_link_libraries(tinykv_client PRIVATE tinykv_proto_lib)
+
+# --- The Server ---
+add_executable(tinykv_server
+    server/Server.cpp
+)
+target_link_libraries(tinykv_server PRIVATE tinykv_proto_lib)
