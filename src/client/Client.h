@@ -12,6 +12,8 @@ public:
 
   bool put(std::string key, std::string val, bool is_client);
 
+  void get(std::string key);
+
 private:
   std::unique_ptr<tinykv::TinyKV::Stub> stub_;
 };

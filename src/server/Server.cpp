@@ -2,6 +2,7 @@
 #include <grpcpp/grpcpp.h>
 #include <iostream>
 #include <memory>
+#include <unordered_map>
 
 using grpc::Server;
 using grpc::ServerBuilder;
@@ -12,6 +13,8 @@ using namespace tinykv;
 
 // The logic class
 class TinyServer final : public TinyKV::Service {
+public:
+  TinyServer() {};
   Status Ping(ServerContext *context, const PingRequest *request,
               PingResponse *reply) override {
     std::cout << "[Server] Received a Ping!" << std::endl;
@@ -21,11 +24,22 @@ class TinyServer final : public TinyKV::Service {
 
   Status Put(ServerContext *context, const PutRequest *request,
              PutResponse *reply) override {
-    std::cout << "[Server] Received a PutRequest with key " << request->key()
-              << "!" << std::endl;
+    std::cout << "[Server] Received a PutRequest with key: " << request->key()
+              << " and value: " << request->val() << "!" << std::endl;
     reply->set_operation_success(true);
+    kv_store[request->key()] = request->val();
     return Status::OK;
   }
+  Status Get(ServerContext *context, const GetRequest *request,
+             GetResponse *reply) override {
+    std::cout << "[Server] Received a GetRequest with key: " << request->key()
+              << "!" << std::endl;
+    reply->set_val(kv_store[request->key()]);
+    return Status::OK;
+  }
+
+private:
+  std::unordered_map<std::string, std::string> kv_store;
 };
 
 void RunServer() {

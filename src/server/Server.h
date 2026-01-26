@@ -1,3 +1,0 @@
-class Server {
-  void ping() {};
-};

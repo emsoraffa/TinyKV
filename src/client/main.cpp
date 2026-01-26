@@ -14,6 +14,7 @@ int main(int argc, char *argv[]) {
 
   std::cout << "[Client] Sending putrequest..." << std::endl;
   client.put("foo", "bar", true);
+  client.get("foo");
 
   return 0;
 }

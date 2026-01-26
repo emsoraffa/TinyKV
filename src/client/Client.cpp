@@ -43,3 +43,19 @@ bool Client::put(std::string key, std::string val, bool is_client) {
     return false;
   }
 }
+void Client::get(std::string key) {
+  GetRequest request;
+  request.set_key(key);
+
+  GetResponse reply;
+  ClientContext context;
+
+  Status status = stub_->Get(&context, request, &reply);
+
+  if (status.ok()) {
+    std::cout << "[Client] GetRequest success. Value is: " << reply.val()
+              << std::endl;
+  } else {
+    std::cout << "[Client] PutRequest failed." << std::endl;
+  }
+}
