@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  node1:
+    build: .
+    container_name: tinykv-node1
+    command: ./build/src/tinykv_server 50051
+    ports:
+      - "50051:50051"
+
+  node2:
+    build: .
+    container_name: tinykv-node2
+    command: ./build/src/tinykv_server 50052
+    ports:
+      - "50052:50052"
+
+  node3:
+    build: .
+    container_name: tinykv-node3
+    command: ./build/src/tinykv_server 50053
+    ports:
+      - "50053:50053"

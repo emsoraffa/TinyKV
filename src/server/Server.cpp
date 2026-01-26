@@ -56,7 +56,6 @@ private:
 };
 
 void RunServer(std::string port) {
-  // TODO: Dynamically assign server listening port
   std::string server_address("0.0.0.0:" + port);
   TinyServer service;
 

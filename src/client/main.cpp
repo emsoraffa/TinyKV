@@ -1,15 +1,25 @@
 #include "Client.h"
 #include <grpcpp/grpcpp.h>
 #include <iostream>
+#include <string>
 
 int main(int argc, char *argv[]) {
-  // Connect to localhost on port 50051
-  auto channel = grpc::CreateChannel("localhost:50051",
-                                     grpc::InsecureChannelCredentials());
+  // Update: Check arguments
+  if (argc != 2) {
+    std::cerr << "Usage: ./tinykv_client <target_port>" << std::endl;
+    return 1;
+  }
+
+  std::string target_address(argv[1]);
+
+  // Connect to the specific port given in arguments
+  auto channel =
+      grpc::CreateChannel(target_address, grpc::InsecureChannelCredentials());
 
   Client client(channel);
 
-  std::cout << "[Client] Sending ping..." << std::endl;
+  std::cout << "[Client] Connecting to " << target_address << "..."
+            << std::endl;
   client.ping();
 
   std::cout << "[Client] Sending putrequest..." << std::endl;
