@@ -1,24 +1,27 @@
 # TinyKV
 
-TinyKV is a distributed key-value store project.
+TinyKV is a distributed key-value store implementation using C++20 and gRPC. It supports data replication and tunable consistency on a static cluster.
 
-## Build Instructions
+## Prerequisites
 
-```
-mkdir build
-cd build
-cmake ..
-make
-```
+- **Docker** (Required for building and running)
+- **gRPC & Protobuf**
 
-## Run
+---
 
-./tinykv
+## 🛠️ Development Setup
 
-## How to use
+We use Docker to ensure a consistent Linux build environment.
+
+### 1. Build the Docker Image
+
+Run this once to set up the build environment (Ubuntu + gRPC + C++ tools).
+
+```bash
+docker build -t tinykv .## How to use
 
 TinyKV supports two different commands: put/get.
 
 To use the put command use the following format
 
-./tinyKV put {key} {value} {W}
+```
