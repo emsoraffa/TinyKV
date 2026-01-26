@@ -26,25 +26,38 @@ public:
              PutResponse *reply) override {
     std::cout << "[Server] Received a PutRequest with key: " << request->key()
               << " and value: " << request->val() << "!" << std::endl;
-    reply->set_operation_success(true);
+
+    // Critical code section, we use mutex to avoid race conditions
+    kv_mutex.lock();
     kv_store[request->key()] = request->val();
+
+    kv_mutex.unlock();
+
+    reply->set_operation_success(true);
     return Status::OK;
   }
   Status Get(ServerContext *context, const GetRequest *request,
              GetResponse *reply) override {
     std::cout << "[Server] Received a GetRequest with key: " << request->key()
               << "!" << std::endl;
+
+    // Critical code section, we use mutex to avoid race conditions
+    kv_mutex.lock();
     reply->set_val(kv_store[request->key()]);
+
+    kv_mutex.unlock();
+
     return Status::OK;
   }
 
 private:
   std::unordered_map<std::string, std::string> kv_store;
+  std::mutex kv_mutex;
 };
 
-void RunServer() {
+void RunServer(std::string port) {
   // TODO: Dynamically assign server listening port
-  std::string server_address("0.0.0.0:50051");
+  std::string server_address("0.0.0.0:" + port);
   TinyServer service;
 
   ServerBuilder builder;
@@ -56,7 +69,12 @@ void RunServer() {
   server->Wait();
 }
 
-int main() {
-  RunServer();
+int main(int argc, char **argv) {
+  if (argc != 2) {
+    std::cerr << "Usage: ./tinykv_server <port>" << std::endl;
+    return 1;
+  }
+  std::string port(argv[1]);
+  RunServer(port);
   return 0;
 }
