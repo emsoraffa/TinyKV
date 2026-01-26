@@ -4,6 +4,7 @@ package tinykv;
 
 service TinyKV {
   rpc Ping (PingRequest) returns (PingResponse) {}
+  rpc Put (PutRequest) returns (PutResponse) {}
 }
 
 // MESSAGES
@@ -12,4 +13,14 @@ message PingRequest {}
 
 message PingResponse {
   bool is_ready = 1;
+}
+
+message PutRequest {
+  string key = 1;
+  string val = 2;
+  bool is_client = 3;
+}
+
+message PutResponse {
+  bool operation_success = 1;
 }

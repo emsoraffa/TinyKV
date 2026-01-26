@@ -8,8 +8,9 @@ public:
   // Setup connection
   Client(std::shared_ptr<grpc::Channel> channel);
 
-  // The only action we can take
   bool ping();
+
+  bool put(std::string key, std::string val, bool is_client);
 
 private:
   std::unique_ptr<tinykv::TinyKV::Stub> stub_;

@@ -7,23 +7,31 @@ using grpc::Server;
 using grpc::ServerBuilder;
 using grpc::ServerContext;
 using grpc::Status;
-using tinykv::PingRequest;
-using tinykv::PingResponse;
-using tinykv::TinyKV;
+
+using namespace tinykv;
 
 // The logic class
-class TinyKVImpl final : public TinyKV::Service {
+class TinyServer final : public TinyKV::Service {
   Status Ping(ServerContext *context, const PingRequest *request,
               PingResponse *reply) override {
     std::cout << "[Server] Received a Ping!" << std::endl;
     reply->set_is_ready(true);
     return Status::OK;
   }
+
+  Status Put(ServerContext *context, const PutRequest *request,
+             PutResponse *reply) override {
+    std::cout << "[Server] Received a PutRequest with key " << request->key()
+              << "!" << std::endl;
+    reply->set_operation_success(true);
+    return Status::OK;
+  }
 };
 
 void RunServer() {
+  // TODO: Dynamically assign server listening port
   std::string server_address("0.0.0.0:50051");
-  TinyKVImpl service;
+  TinyServer service;
 
   ServerBuilder builder;
   builder.AddListeningPort(server_address, grpc::InsecureServerCredentials());
