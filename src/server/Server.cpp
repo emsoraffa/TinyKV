@@ -57,8 +57,18 @@ public:
     return Status::OK;
   }
 
-  void _register_cluster_addresses(std::vector<std::string> clusters) {
-    cluster_registry = clusters;
+  void _initialize_cluster_map(std::vector<std::string> clusters) {
+    for (std::string address : clusters) {
+      // Prevents the server from creating a connection to itself
+      if (address.ends_with(":" + port)) {
+        continue;
+      }
+      auto channel =
+          grpc::CreateChannel(address, grpc::InsecureChannelCredentials());
+      Client peer_client(channel);
+
+      cluster_map[address] = std::make_unique<Client>(channel);
+    }
   }
 
   /*
@@ -67,17 +77,9 @@ public:
    */
   void _heartbeat() {
     while (!shutdown_requested_) {
-      for (std::string address : cluster_registry) {
+      for (auto &[address, peer_client] : cluster_map) {
 
-        // Prevents the server from pinging itself
-        if (address.ends_with(":" + port)) {
-          continue;
-        }
-
-        auto channel =
-            grpc::CreateChannel(address, grpc::InsecureChannelCredentials());
-        Client temp_client(channel);
-        if (temp_client.ping(false)) {
+        if (peer_client->ping(false)) {
           peer_status_mutex.lock();
 
           peer_last_seen[address] = std::chrono::steady_clock::now();
@@ -98,7 +100,7 @@ private:
   std::string port;
   std::atomic<bool> shutdown_requested_;
 
-  std::vector<std::string> cluster_registry;
+  std::unordered_map<std::string, std::unique_ptr<Client>> cluster_map;
   std::unordered_map<std::string, std::chrono::steady_clock::time_point>
       peer_last_seen;
   std::mutex peer_status_mutex;
@@ -115,7 +117,7 @@ void RunServer(std::string port) {
   // Load clusters
   std::vector<std::string> cluster_adresses =
       LoadClusterConfig("config/clusters.txt");
-  service._register_cluster_addresses(cluster_adresses);
+  service._initialize_cluster_map(cluster_adresses);
 
   std::unique_ptr<Server> server(builder.BuildAndStart());
   std::cout << "[Server] Listening on " << server_address << std::endl;
