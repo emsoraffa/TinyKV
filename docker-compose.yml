@@ -21,3 +21,16 @@ services:
     command: ./build/src/tinykv_server 50053
     ports:
       - "50053:50053"
+  node4:
+    build: .
+    container_name: tinykv-node4
+    command: ./build/src/tinykv_server 50054
+    ports:
+      - "50054:50054"
+
+  node5:
+    build: .
+    container_name: tinykv-node5
+    command: ./build/src/tinykv_server 50055
+    ports:
+      - "50055:50055"

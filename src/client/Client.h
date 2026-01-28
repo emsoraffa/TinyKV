@@ -5,7 +5,6 @@
 
 class Client {
 public:
-  // Setup connection
   Client(std::shared_ptr<grpc::Channel> channel);
 
   bool ping();

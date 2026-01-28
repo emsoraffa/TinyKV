@@ -1,0 +1,5 @@
+tinykv-node1:50051
+tinykv-node2:50052
+tinykv-node3:50053
+tinykv-node4:50054
+tinykv-node5:50055
