@@ -9,7 +9,7 @@ using namespace tinykv;
 Client::Client(std::shared_ptr<grpc::Channel> channel)
     : stub_(tinykv::TinyKV::NewStub(channel)) {}
 
-bool Client::ping() {
+bool Client::ping(bool is_verbose = 1) {
   PingRequest request;
   PingResponse reply;
   ClientContext context;
@@ -17,10 +17,12 @@ bool Client::ping() {
   Status status = stub_->Ping(&context, request, &reply);
 
   if (status.ok()) {
-    std::cout << "[Client] Ping success! Server is ready." << std::endl;
+    if (is_verbose)
+      std::cout << "[Client] Ping success! Server is ready." << std::endl;
     return reply.is_ready();
   } else {
-    std::cout << "[Client] Ping failed." << std::endl;
+    if (is_verbose)
+      std::cout << "[Client] Ping failed." << std::endl;
     return false;
   }
 }

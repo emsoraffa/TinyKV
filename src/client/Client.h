@@ -7,7 +7,7 @@ class Client {
 public:
   Client(std::shared_ptr<grpc::Channel> channel);
 
-  bool ping();
+  bool ping(bool is_verbose);
 
   bool put(std::string key, std::string val, bool is_client);
 

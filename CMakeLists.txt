@@ -4,7 +4,7 @@ project(TinyKV LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# --- LINUX/DOCKER FIX ---
+# --- 1. DEPENDENCIES (Linux/Docker) ---
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(GRPC REQUIRED grpc++)
 pkg_check_modules(PROTOBUF REQUIRED protobuf)
@@ -12,7 +12,7 @@ pkg_check_modules(PROTOBUF REQUIRED protobuf)
 find_program(GRPC_CPP_PLUGIN_EXECUTABLE grpc_cpp_plugin)
 find_program(PROTOC_EXECUTABLE protoc)
 
-# 2. Helper function to compile .proto files
+# --- 2. PROTOBUF GENERATION HELPER ---
 function(generate_proto_sources PROTO_FILE OUT_H OUT_CC)
   get_filename_component(PROTO_ABS "${PROTO_FILE}" ABSOLUTE)
   get_filename_component(PROTO_DIR "${PROTO_ABS}" DIRECTORY)
@@ -39,13 +39,22 @@ function(generate_proto_sources PROTO_FILE OUT_H OUT_CC)
   set(${OUT_CC} "${_CC}" "${_GRPC_CC}" PARENT_SCOPE)
 endfunction()
 
-# 3. Create the Proto Library
+# --- 3. CREATE PROTO LIBRARY ---
+# Generate files into the build directory
 generate_proto_sources("protos/tinykv.proto" PROTO_HEADERS PROTO_SOURCES)
+
+# Define the library once here
 add_library(tinykv_proto_lib ${PROTO_HEADERS} ${PROTO_SOURCES})
 
-# Link using PkgConfig variables
+# Link PkgConfig libraries
 target_link_libraries(tinykv_proto_lib PUBLIC ${GRPC_LIBRARIES} ${PROTOBUF_LIBRARIES})
-target_include_directories(tinykv_proto_lib PUBLIC ${GRPC_INCLUDE_DIRS} ${PROTOBUF_INCLUDE_DIRS} "${CMAKE_CURRENT_BINARY_DIR}")
 
-# 4. Go to source
+# PUBLIC allows sub-directories to see the generated headers
+target_include_directories(tinykv_proto_lib PUBLIC
+    ${GRPC_INCLUDE_DIRS}
+    ${PROTOBUF_INCLUDE_DIRS}
+    "${CMAKE_CURRENT_BINARY_DIR}"
+)
+
+# --- 4. SUBDIRECTORIES ---
 add_subdirectory(src)
