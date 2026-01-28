@@ -9,10 +9,12 @@ using namespace tinykv;
 Client::Client(std::shared_ptr<grpc::Channel> channel)
     : stub_(tinykv::TinyKV::NewStub(channel)) {}
 
-bool Client::ping(bool is_verbose = 1) {
+bool Client::ping(bool is_verbose, std::string sender_id) {
   PingRequest request;
   PingResponse reply;
   ClientContext context;
+
+  request.set_sender_id(sender_id);
 
   Status status = stub_->Ping(&context, request, &reply);
 
@@ -26,11 +28,11 @@ bool Client::ping(bool is_verbose = 1) {
     return false;
   }
 }
-bool Client::put(std::string key, std::string val, bool is_client) {
+bool Client::put(std::string key, std::string val, std::string sender_id) {
   PutRequest request;
   request.set_key(key);
   request.set_val(val);
-  request.set_is_client(is_client);
+  request.set_sender_id(sender_id);
 
   PutResponse reply;
   ClientContext context;
@@ -45,9 +47,10 @@ bool Client::put(std::string key, std::string val, bool is_client) {
     return false;
   }
 }
-void Client::get(std::string key) {
+void Client::get(std::string key, std::string sender_id) {
   GetRequest request;
   request.set_key(key);
+  request.set_sender_id(sender_id);
 
   GetResponse reply;
   ClientContext context;

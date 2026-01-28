@@ -10,7 +10,9 @@ service TinyKV {
 
 // MESSAGES
 
-message PingRequest {} 
+message PingRequest {
+  string sender_id = 1;
+} 
 
 message PingResponse {
   bool is_ready = 1;
@@ -19,7 +21,7 @@ message PingResponse {
 message PutRequest {
   string key = 1;
   string val = 2;
-  bool is_client = 3;
+  string sender_id = 3;
 }
 
 message PutResponse {
@@ -28,6 +30,7 @@ message PutResponse {
 
 message GetRequest {
   string key = 1;
+  string sender_id = 2;
 }
 
 message GetResponse {

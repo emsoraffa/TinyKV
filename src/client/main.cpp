@@ -20,11 +20,11 @@ int main(int argc, char *argv[]) {
 
   std::cout << "[Client] Connecting to " << target_address << "..."
             << std::endl;
-  client.ping(true);
+  client.ping(true, "client");
 
   std::cout << "[Client] Sending putrequest..." << std::endl;
-  client.put("foo", "bar", true);
-  client.get("foo");
+  client.put("foo", "bar", "client");
+  client.get("foo", "client");
 
   return 0;
 }

@@ -7,11 +7,11 @@ class Client {
 public:
   Client(std::shared_ptr<grpc::Channel> channel);
 
-  bool ping(bool is_verbose);
+  bool ping(bool is_verbose, std::string sender_id);
 
-  bool put(std::string key, std::string val, bool is_client);
+  bool put(std::string key, std::string val, std::string sender_id);
 
-  void get(std::string key);
+  void get(std::string key, std::string sender_id);
 
 private:
   std::unique_ptr<tinykv::TinyKV::Stub> stub_;

@@ -25,7 +25,12 @@ public:
   Status Ping(ServerContext *context, const PingRequest *request,
               PingResponse *reply) override {
     std::cout << "[Server] Received a Ping!" << std::endl;
+
+    if (request->sender_id() != "client")
+      update_last_seen(request->sender_id());
+
     reply->set_is_ready(true);
+
     return Status::OK;
   }
 
@@ -33,6 +38,9 @@ public:
              PutResponse *reply) override {
     std::cout << "[Server] Received a PutRequest with key: " << request->key()
               << " and value: " << request->val() << "!" << std::endl;
+
+    if (request->sender_id() != "client")
+      update_last_seen(request->sender_id());
 
     // Critical code section, we use mutex to avoid race conditions
     kv_mutex.lock();
@@ -48,6 +56,9 @@ public:
     std::cout << "[Server] Received a GetRequest with key: " << request->key()
               << "!" << std::endl;
 
+    if (request->sender_id() != "client")
+      update_last_seen(request->sender_id());
+
     // Critical code section, we use mutex to avoid race conditions
     kv_mutex.lock();
     reply->set_val(kv_store[request->key()]);
@@ -61,6 +72,7 @@ public:
     for (std::string address : clusters) {
       // Prevents the server from creating a connection to itself
       if (address.ends_with(":" + port)) {
+        self_address = address;
         continue;
       }
       auto channel =
@@ -72,19 +84,14 @@ public:
   }
 
   /*
-   * Periodically pings other nodes asynchrounosly to let them know
-   * this node is up and running.
+   * Periodically pings other nodes to check alive status
    */
   void _heartbeat() {
     while (!shutdown_requested_) {
       for (auto &[address, peer_client] : cluster_map) {
 
-        if (peer_client->ping(false)) {
-          peer_status_mutex.lock();
-
-          peer_last_seen[address] = std::chrono::steady_clock::now();
-
-          peer_status_mutex.unlock();
+        if (peer_client->ping(false, self_address)) {
+          update_last_seen(address);
         }
       }
       std::this_thread::sleep_for(std::chrono::seconds(10));
@@ -93,11 +100,24 @@ public:
 
   void stop() { shutdown_requested_ = true; }
 
+  /*
+   * Updates last_seen of a peer to the current time in a
+   * thread safe way
+   */
+  void update_last_seen(std::string address) {
+    peer_status_mutex.lock();
+
+    peer_last_seen[address] = std::chrono::steady_clock::now();
+
+    peer_status_mutex.unlock();
+  }
+
 private:
   std::unordered_map<std::string, std::string> kv_store;
   std::mutex kv_mutex;
 
   std::string port;
+  std::string self_address;
   std::atomic<bool> shutdown_requested_;
 
   std::unordered_map<std::string, std::unique_ptr<Client>> cluster_map;
