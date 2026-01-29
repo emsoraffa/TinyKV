@@ -136,7 +136,7 @@ public:
   void stop() { shutdown_requested_ = true; }
 
 private:
-  std::unordered_map<std::string, std::string> kv_store;
+  std::unordered_map<std::string, std::pair<std::string, int64_t>> kv_store;
   std::mutex kv_mutex;
 
   std::string port;
@@ -162,11 +162,27 @@ private:
 
   /*
    * Thread safe Write operation
+   * compares timestamps to ensure LWW
    */
   void write(std::string key, std::string val, int64_t timestamp) {
-    kv_mutex.lock();
 
-    kv_store[key] = val;
+    kv_mutex.lock();
+    if (kv_store.count(key)) {
+      int64_t current_ts = kv_store[key].second;
+
+      if (timestamp <= current_ts) {
+        std::cout << "[Write] Ignored stale/duplicate write for " << key
+                  << " (Curr: " << current_ts << ", Req: " << timestamp << ")"
+                  << std::endl;
+
+        kv_mutex.unlock();
+        return;
+      }
+    }
+
+    kv_store[key] = {val, timestamp};
+    std::cout << "[Write] Updated " << key << " (TS: " << timestamp << ")"
+              << std::endl;
 
     kv_mutex.unlock();
   }

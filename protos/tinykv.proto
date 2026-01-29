@@ -23,6 +23,7 @@ message PutRequest {
   string val = 2;
   string sender_id = 3;
   int32 replication_factor = 4;
+  int64 timestamp = 5;
 }
 
 message PutResponse {
