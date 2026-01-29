@@ -9,7 +9,8 @@ public:
 
   bool ping(bool is_verbose, std::string sender_id);
 
-  bool put(std::string key, std::string val, std::string sender_id);
+  bool put(std::string key, std::string val, std::string sender_id,
+           int replication_factor = 3);
 
   void get(std::string key, std::string sender_id);
 

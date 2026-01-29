@@ -28,11 +28,13 @@ bool Client::ping(bool is_verbose, std::string sender_id) {
     return false;
   }
 }
-bool Client::put(std::string key, std::string val, std::string sender_id) {
+bool Client::put(std::string key, std::string val, std::string sender_id,
+                 int replication_factor) {
   PutRequest request;
   request.set_key(key);
   request.set_val(val);
   request.set_sender_id(sender_id);
+  request.set_replication_factor(replication_factor);
 
   PutResponse reply;
   ClientContext context;

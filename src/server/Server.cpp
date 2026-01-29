@@ -1,8 +1,10 @@
 #include <atomic>
 #include <chrono>
 #include <grpcpp/grpcpp.h>
+#include <grpcpp/support/status.h>
 #include <iostream>
 #include <memory>
+#include <mutex>
 #include <thread>
 #include <unordered_map>
 
@@ -10,6 +12,7 @@
 #include "Utils.h"
 
 #include "tinykv.grpc.pb.h"
+#include "tinykv.pb.h"
 
 using grpc::Server;
 using grpc::ServerBuilder;
@@ -18,7 +21,6 @@ using grpc::Status;
 
 using namespace tinykv;
 
-// The logic class
 class TinyServer final : public TinyKV::Service {
 public:
   TinyServer(std::string port) { this->port = port; };
@@ -34,23 +36,62 @@ public:
     return Status::OK;
   }
 
+  /*
+   * The put function takes requests from a client or a peer node.
+   *
+   * If the request is from the client we find the rightful owner and forward
+   * the request without changing the sender_id. If the node is the owner then
+   * it will do a flight check and proceed to replicate and write the data
+   *
+   * If the request is from a peer node, we simply perform a write
+   *
+   */
   Status Put(ServerContext *context, const PutRequest *request,
              PutResponse *reply) override {
-    std::cout << "[Server] Received a PutRequest with key: " << request->key()
-              << " and value: " << request->val() << "!" << std::endl;
 
-    if (request->sender_id() != "client")
+    if (request->sender_id() != "client") {
+      // Request is from peer node, we backup the data
       update_last_seen(request->sender_id());
+      write(request->key(), request->val(), request->timestamp());
+      reply->set_operation_success(true);
+      return Status::OK;
+    }
 
-    // Critical code section, we use mutex to avoid race conditions
-    kv_mutex.lock();
-    kv_store[request->key()] = request->val();
+    else {
+      // TODO: Replace with: std::string owner =
+      // hash_ring.get_owner(request->key());
+      std::string owner_address = self_address;
+      bool isOwner = (owner_address == self_address);
 
-    kv_mutex.unlock();
+      if (!isOwner) {
+        // pass request on to owner
+        forward_to_owner(request, owner_address);
+        return Status::OK;
+      }
 
-    reply->set_operation_success(true);
-    return Status::OK;
+      // We are the owner
+
+      // Ensure enough nodes are available for replication
+      if (request->replication_factor() - 1 > live_node_count()) {
+        reply->set_operation_success(false);
+        return Status(grpc::StatusCode::UNAVAILABLE,
+                      "Not enough live node for replication");
+      }
+
+      int64_t timestamp =
+          std::chrono::duration_cast<std::chrono::microseconds>(
+              std::chrono::system_clock::now().time_since_epoch())
+              .count();
+
+      write(request->key(), request->val(), timestamp);
+
+      bool success = replicate_key(request, timestamp);
+
+      reply->set_operation_success(success);
+      return Status::OK;
+    }
   }
+
   Status Get(ServerContext *context, const GetRequest *request,
              GetResponse *reply) override {
     std::cout << "[Server] Received a GetRequest with key: " << request->key()
@@ -58,12 +99,6 @@ public:
 
     if (request->sender_id() != "client")
       update_last_seen(request->sender_id());
-
-    // Critical code section, we use mutex to avoid race conditions
-    kv_mutex.lock();
-    reply->set_val(kv_store[request->key()]);
-
-    kv_mutex.unlock();
 
     return Status::OK;
   }
@@ -100,18 +135,6 @@ public:
 
   void stop() { shutdown_requested_ = true; }
 
-  /*
-   * Updates last_seen of a peer to the current time in a
-   * thread safe way
-   */
-  void update_last_seen(std::string address) {
-    peer_status_mutex.lock();
-
-    peer_last_seen[address] = std::chrono::steady_clock::now();
-
-    peer_status_mutex.unlock();
-  }
-
 private:
   std::unordered_map<std::string, std::string> kv_store;
   std::mutex kv_mutex;
@@ -122,8 +145,65 @@ private:
 
   std::unordered_map<std::string, std::unique_ptr<Client>> cluster_map;
   std::unordered_map<std::string, std::chrono::steady_clock::time_point>
-      peer_last_seen;
+      peer_last_seen_map;
   std::mutex peer_status_mutex;
+
+  /*
+   * Updates last_seen of a peer to the current time in a
+   * thread safe way
+   */
+  void update_last_seen(std::string address) {
+    peer_status_mutex.lock();
+
+    peer_last_seen_map[address] = std::chrono::steady_clock::now();
+
+    peer_status_mutex.unlock();
+  }
+
+  /*
+   * Thread safe Write operation
+   */
+  void write(std::string key, std::string val, int64_t timestamp) {
+    kv_mutex.lock();
+
+    kv_store[key] = val;
+
+    kv_mutex.unlock();
+  }
+
+  bool replicate_key(const PutRequest *request, int64_t timestamp) {
+    // TODO:Replication
+    return true;
+  }
+
+  /*
+   * Counts the number of live peers, excluding itself
+   */
+  int live_node_count() {
+
+    peer_status_mutex.lock();
+
+    std::chrono::time_point now = std::chrono::steady_clock::now();
+    int count = 0;
+
+    for (const auto &[address, last_seen] : peer_last_seen_map) {
+      if (now - last_seen < std::chrono::seconds(15)) {
+        count++;
+      }
+    }
+
+    peer_status_mutex.unlock();
+    return count;
+  }
+
+  /*
+   * Hands off a request to owner node
+   */
+  bool forward_to_owner(const PutRequest *request, std::string owner_address) {
+    Client *client = cluster_map[owner_address].get();
+    return client->put(request->key(), request->val(), "client",
+                       request->replication_factor());
+  }
 };
 
 void RunServer(std::string port) {
