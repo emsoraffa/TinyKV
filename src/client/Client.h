@@ -3,6 +3,8 @@
 #include <grpcpp/grpcpp.h>
 #include <memory>
 
+using Val_TS = std::pair<std::string, int64_t>; // a timestamped string value
+
 class Client {
 public:
   Client(std::shared_ptr<grpc::Channel> channel);
@@ -12,7 +14,7 @@ public:
   bool put(std::string key, std::string val, std::string sender_id,
            int replication_factor = 3, int64_t timestamp = 0);
 
-  std::string get(std::string key, std::string sender_id);
+  Val_TS get(std::string key, std::string sender_id, int quorum_size = 1);
 
 private:
   std::unique_ptr<tinykv::TinyKV::Stub> stub_;

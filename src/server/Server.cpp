@@ -5,6 +5,7 @@
 #include <iostream>
 #include <memory>
 #include <mutex>
+#include <queue>
 #include <thread>
 #include <unordered_map>
 
@@ -21,6 +22,7 @@ using grpc::ServerContext;
 using grpc::Status;
 
 using namespace tinykv;
+using Val_TS = std::pair<std::string, int64_t>; // a timestamped string value
 
 class TinyServer final : public TinyKV::Service {
 public:
@@ -111,27 +113,99 @@ public:
              GetResponse *reply) override {
     std::cout << "[Server] Get key: " << request->key() << std::endl;
 
+    if (request->quorum_size() > live_node_count() + 1) {
+      return Status(grpc::StatusCode::UNAVAILABLE,
+                    "Not enough live nodes to satisfy quorum size");
+    }
+
     if (request->sender_id() != "client") {
       update_last_seen(request->sender_id());
     }
 
     std::string owner_address = hash_ring.get_owner(request->key());
+    bool isOwner = (owner_address == self_address);
 
-    if (owner_address != self_address) {
-      std::string val = forward_get_to_owner(request, owner_address);
+    // Forward get request to owner
+    if (!isOwner && request->sender_id() == "client") {
+      Val_TS timestamped_value = forward_get_to_owner(request, owner_address);
 
-      reply->set_val(val);
+      reply->set_val(timestamped_value.first);
+      reply->set_timestamp(timestamped_value.second);
       reply->set_operation_success(true);
 
       return Status::OK;
     }
 
+    if (isOwner) {
+      // Read and consult quorum
+      std::vector<std::string> preference_list =
+          hash_ring.get_owner_and_neighbours(request->key(),
+                                             request->quorum_size());
+
+      auto cmp = [](const Val_TS &t1, const Val_TS &t2) {
+        return t1.second > t2.second;
+      };
+      std::priority_queue<Val_TS, std::vector<Val_TS>, decltype(cmp)>
+          priority_queue(cmp);
+
+      // Add owners value to priority queue
+      kv_mutex.lock();
+      if (kv_store.contains(request->key())) {
+        priority_queue.push(kv_store[request->key()]);
+      } else {
+        priority_queue.push({"", -1});
+      }
+      kv_mutex.unlock();
+
+      int i = 1;
+      bool ok = false;
+
+      // Read from neighbours until quorum size is met
+      while (i < request->quorum_size()) {
+        std::string peer_adress = preference_list.at(i);
+        Client *peer_client = cluster_map[peer_adress].get();
+        Val_TS val = peer_client->get(request->key(), self_address, 1);
+        if (val.second > 0) {
+          priority_queue.push(val);
+        }
+
+        if (i > preference_list.size() - 1) {
+          break;
+        }
+        i++;
+      }
+
+      if (priority_queue.size() == request->quorum_size()) {
+        ok = true;
+      }
+
+      Val_TS last_write = priority_queue.top();
+
+      if (last_write.second < 0) {
+        std::cout << "[Server] No value found for key: " << request->key()
+                  << std::endl;
+        reply->set_val("");
+        reply->set_timestamp(-1);
+        reply->set_operation_success(false);
+
+        return Status::OK;
+      }
+      reply->set_val(last_write.first);
+      reply->set_timestamp(last_write.second);
+      reply->set_operation_success(true);
+
+      return Status::OK;
+    }
+
+    // We are not the owner, we simply do a read
+
     kv_mutex.lock();
     if (kv_store.count(request->key())) {
-      // Return the value (ignore timestamp for now)
       reply->set_val(kv_store[request->key()].first);
+      reply->set_timestamp(kv_store[request->key()].second);
     } else {
-      reply->set_val(""); // Key not found
+      reply->set_val("");
+      reply->set_timestamp(-1);
     }
     kv_mutex.unlock();
 
@@ -171,7 +245,7 @@ public:
   void stop() { shutdown_requested_ = true; }
 
 private:
-  std::unordered_map<std::string, std::pair<std::string, int64_t>> kv_store;
+  std::unordered_map<std::string, Val_TS> kv_store;
   std::mutex kv_mutex;
 
   std::string port;
@@ -286,10 +360,10 @@ private:
                        request->replication_factor());
   }
 
-  std::string forward_get_to_owner(const GetRequest *request,
-                                   std::string owner_address) {
+  Val_TS forward_get_to_owner(const GetRequest *request,
+                              std::string owner_address) {
     Client *client = cluster_map[owner_address].get();
-    return client->get(request->key(), "client");
+    return client->get(request->key(), "client", request->quorum_size());
   }
 
   void _build_hash_ring() {

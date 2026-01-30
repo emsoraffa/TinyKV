@@ -35,7 +35,7 @@ void print_usage() {
             << "Commands:\n"
             << "  ping\n"
             << "  put <key> <val> [rf]\n"
-            << "  get <key>\n";
+            << "  get <key> [quorum_size]\n";
 }
 
 int main(int argc, char *argv[]) {
@@ -65,8 +65,8 @@ int main(int argc, char *argv[]) {
       std::string val = argv[4];
       int rf = (argc >= 6) ? std::stoi(argv[5]) : 3;
 
-      std::cout << "[CLI] Putting " << key << "=" << val << " to "
-                << target_address << std::endl;
+      std::cout << "[CLI] Putting " << key << "=" << val << " (RF=" << rf
+                << ") to " << target_address << std::endl;
       bool success = client.put(key, val, "client", rf);
       return success ? 0 : 1;
     } else if (command == "get") {
@@ -75,8 +75,23 @@ int main(int argc, char *argv[]) {
         return 1;
       }
       std::string key = argv[3];
+      // Default to Quorum=2 if not specified
+      int quorum = (argc >= 5) ? std::stoi(argv[4]) : 2;
 
-      client.get(key, "client");
+      // Capture the result pair {value, timestamp}
+      Val_TS result = client.get(key, "client", quorum);
+
+      if (result.second == -1) {
+        std::cerr << "[CLI] Key not found or quorum failed." << std::endl;
+        return 1;
+      }
+
+      // Print ONLY the value to stdout so scripts can capture it easily
+      std::cout << result.first << std::endl;
+      // Optional: Print metadata to stderr
+      std::cerr << "[CLI] Got value with Timestamp: " << result.second
+                << std::endl;
+
       return 0;
     } else {
       std::cerr << "Unknown command: " << command << std::endl;

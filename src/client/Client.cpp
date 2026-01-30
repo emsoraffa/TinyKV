@@ -1,10 +1,12 @@
 #include "Client.h"
+#include <cstdarg>
 #include <iostream>
 
 using grpc::ClientContext;
 using grpc::Status;
 
 using namespace tinykv;
+using Val_TS = std::pair<std::string, int64_t>; // a timestamped string value
 
 Client::Client(std::shared_ptr<grpc::Channel> channel)
     : stub_(tinykv::TinyKV::NewStub(channel)) {}
@@ -50,10 +52,12 @@ bool Client::put(std::string key, std::string val, std::string sender_id,
     return false;
   }
 }
-std::string Client::get(std::string key, std::string sender_id) {
+
+Val_TS Client::get(std::string key, std::string sender_id, int quorum_size) {
   GetRequest request;
   request.set_key(key);
   request.set_sender_id(sender_id);
+  request.set_quorum_size(quorum_size);
 
   GetResponse reply;
   ClientContext context;
@@ -61,11 +65,10 @@ std::string Client::get(std::string key, std::string sender_id) {
   Status status = stub_->Get(&context, request, &reply);
 
   if (status.ok()) {
-    std::cout << "[Client] GetRequest success. Value is: " << reply.val()
-              << std::endl;
-    return reply.val();
+    // Return {Value, Timestamp}
+    return {reply.val(), reply.timestamp()};
   } else {
-    std::cout << "[Client] GetRequest failed." << std::endl;
-    return "";
+    std::cerr << "[Client] GetRequest failed." << std::endl;
+    return {"", -1}; // Error indicator
   }
 }

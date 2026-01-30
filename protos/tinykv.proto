@@ -33,9 +33,11 @@ message PutResponse {
 message GetRequest {
   string key = 1;
   string sender_id = 2;
+  int32 quorum_size = 3;
 }
 
 message GetResponse {
   string val = 1;
-  bool operation_success = 2;
+  int64 timestamp = 2;
+  bool operation_success = 3;
 }

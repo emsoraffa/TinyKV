@@ -14,28 +14,26 @@ RED='\033[0;31m'
 NC='\033[0m' # No Color
 
 echo "========================================"
-echo "      TinyKV Cluster Smoke Test (Dockerized)"
+echo "      TinyKV Quorum Smoke Test"
 echo "========================================"
 
 # 1. TEST CONNECTIVITY
 echo -n "[1/4] Pinging Node 1... "
-# We suppress output to keep it clean, check exit code
 $CLIENT $NODE1 ping >/dev/null 2>&1
 if [ $? -eq 0 ]; then
   echo -e "${GREEN}OK${NC}"
 else
   echo -e "${RED}FAIL${NC}"
-  echo "      Error: Could not connect to $NODE1"
-  echo "      Ensure 'docker-compose up' is running."
+  echo "      Error: Could not connect. Is docker-compose up?"
   exit 1
 fi
 
-# 2. TEST WRITE (Coordinator Logic)
-KEY="smoke_test_key"
-VAL="hello_docker_$(date +%s)"
+# 2. TEST WRITE (Standard RF=3)
+KEY="quorum_key"
+VAL="quorum_val_$(date +%s)"
 
 echo -n "[2/4] Writing '$KEY=$VAL' to Node 1... "
-$CLIENT $NODE1 put $KEY $VAL >/dev/null 2>&1
+$CLIENT $NODE1 put $KEY $VAL 3 >/dev/null 2>&1
 if [ $? -eq 0 ]; then
   echo -e "${GREEN}OK${NC}"
 else
@@ -43,28 +41,31 @@ else
   exit 1
 fi
 
-# 3. TEST READ (Local Read)
-echo -n "[3/4] Reading back from Node 1... "
-# Capture output, strip newlines for cleaner checking
-OUTPUT=$($CLIENT $NODE1 get $KEY 2>&1)
+# 3. TEST QUORUM READ (R=3)
+# Asking Node 1 to get consensus from 3 nodes.
+echo -n "[3/4] Quorum Read (R=3) from Node 1... "
+OUTPUT=$($CLIENT $NODE1 get $KEY 3)
+
+# Filter out the [CLI] logs from stderr, just check if our value is in the output
+if [[ "$OUTPUT" == *"$VAL"* ]]; then
+  echo -e "${GREEN}OK${NC}"
+else
+  echo -e "${RED}FAIL${NC}"
+  echo "      Expected: $VAL"
+  echo "      Got:      $OUTPUT"
+fi
+
+# 4. TEST FORWARDING + QUORUM
+# Ask Node 2 (who might not be owner) to coordinate a Quorum Read (R=2)
+echo -n "[4/4] Forwarded Quorum Read (R=2) via Node 2... "
+OUTPUT=$($CLIENT $NODE2 get $KEY 2)
 
 if [[ "$OUTPUT" == *"$VAL"* ]]; then
   echo -e "${GREEN}OK${NC}"
 else
   echo -e "${RED}FAIL${NC}"
-  echo "      Expected: ...$VAL..."
+  echo "      Expected: $VAL"
   echo "      Got:      $OUTPUT"
-fi
-
-# 4. TEST REPLICATION (Remote Read)
-echo -n "[4/4] Verifying Replication on Node 2... "
-OUTPUT=$($CLIENT $NODE2 get $KEY 2>&1)
-
-if [[ "$OUTPUT" == *"$VAL"* ]]; then
-  echo -e "${GREEN}OK${NC} (Replication Confirmed)"
-else
-  echo -e "${RED}FAIL${NC} - Node 2 missing data."
-  echo "      (This is normal if the 'dumb' replication picked Node 3 or 4 instead)"
 fi
 
 echo "========================================"
