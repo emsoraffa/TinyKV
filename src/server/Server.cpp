@@ -9,6 +9,7 @@
 #include <unordered_map>
 
 #include "Client.h"
+#include "HashRing.h"
 #include "Utils.h"
 
 #include "tinykv.grpc.pb.h"
@@ -23,7 +24,17 @@ using namespace tinykv;
 
 class TinyServer final : public TinyKV::Service {
 public:
-  TinyServer(std::string port) { this->port = port; };
+  TinyServer(std::string port) {
+    this->port = port;
+
+    // Load clusters
+    std::vector<std::string> cluster_adresses =
+        LoadClusterConfig("config/clusters.txt");
+    _initialize_cluster_map(cluster_adresses);
+
+    _build_hash_ring();
+  };
+
   Status Ping(ServerContext *context, const PingRequest *request,
               PingResponse *reply) override {
     std::cout << "[Server] Received a Ping!" << std::endl;
@@ -49,6 +60,11 @@ public:
   Status Put(ServerContext *context, const PutRequest *request,
              PutResponse *reply) override {
 
+    std::cout << "[Server]: " << self_address
+              << " received Put request key: " << request->key()
+              << " val: " << request->val()
+              << " sender_id: " << request->sender_id() << std::endl;
+
     if (request->sender_id() != "client") {
       // Request is from peer node, we backup the data
       update_last_seen(request->sender_id());
@@ -58,9 +74,7 @@ public:
     }
 
     else {
-      // TODO: Replace with: std::string owner =
-      // hash_ring.get_owner(request->key());
-      std::string owner_address = self_address;
+      std::string owner_address = hash_ring.get_owner(request->key());
       bool isOwner = (owner_address == self_address);
 
       if (!isOwner) {
@@ -94,11 +108,20 @@ public:
 
   Status Get(ServerContext *context, const GetRequest *request,
              GetResponse *reply) override {
-    std::cout << "[Server] Received a GetRequest with key: " << request->key()
-              << "!" << std::endl;
+    std::cout << "[Server] Get key: " << request->key() << std::endl;
 
-    if (request->sender_id() != "client")
+    if (request->sender_id() != "client") {
       update_last_seen(request->sender_id());
+    }
+
+    kv_mutex.lock();
+    if (kv_store.count(request->key())) {
+      // Return the value (ignore timestamp for now)
+      reply->set_val(kv_store[request->key()].first);
+    } else {
+      reply->set_val(""); // Key not found
+    }
+    kv_mutex.unlock();
 
     return Status::OK;
   }
@@ -147,6 +170,7 @@ private:
   std::unordered_map<std::string, std::chrono::steady_clock::time_point>
       peer_last_seen_map;
   std::mutex peer_status_mutex;
+  HashRing hash_ring;
 
   /*
    * Updates last_seen of a peer to the current time in a
@@ -168,11 +192,11 @@ private:
 
     kv_mutex.lock();
     if (kv_store.count(key)) {
-      int64_t current_ts = kv_store[key].second;
+      int64_t current_time = kv_store[key].second;
 
-      if (timestamp <= current_ts) {
+      if (timestamp <= current_time) {
         std::cout << "[Write] Ignored stale/duplicate write for " << key
-                  << " (Curr: " << current_ts << ", Req: " << timestamp << ")"
+                  << " (Curr: " << current_time << ", Req: " << timestamp << ")"
                   << std::endl;
 
         kv_mutex.unlock();
@@ -188,8 +212,36 @@ private:
   }
 
   bool replicate_key(const PutRequest *request, int64_t timestamp) {
-    // TODO:Replication
-    return true;
+    int replicas = request->replication_factor();
+    int success_count = 0;
+
+    std::vector<std::string> preference_list =
+        hash_ring.get_owner_and_neighbours(request->key(), replicas);
+
+    for (std::string node_adress : preference_list) {
+      if (node_adress == self_address)
+        continue;
+
+      Client *peer_client = cluster_map[node_adress].get();
+
+      std::cout << "[Server] Replicating key: " << request->key()
+                << " at: " << node_adress << std::endl;
+
+      bool ok = peer_client->put(request->key(), request->val(), self_address,
+                                 0, timestamp);
+
+      if (ok) {
+        success_count++;
+      }
+    }
+
+    if (success_count < replicas - 1) {
+      std::cout
+          << "[Server] Warning, unable to find required number of replicas"
+          << std::endl;
+    }
+
+    return success_count >= (replicas - 1);
   }
 
   /*
@@ -220,6 +272,14 @@ private:
     return client->put(request->key(), request->val(), "client",
                        request->replication_factor());
   }
+
+  void _build_hash_ring() {
+    hash_ring.add_node(self_address);
+
+    for (const auto &[adress, _] : cluster_map) {
+      hash_ring.add_node(adress);
+    }
+  }
 };
 
 void RunServer(std::string port) {
@@ -230,15 +290,10 @@ void RunServer(std::string port) {
   builder.AddListeningPort(server_address, grpc::InsecureServerCredentials());
   builder.RegisterService(&service);
 
-  // Load clusters
-  std::vector<std::string> cluster_adresses =
-      LoadClusterConfig("config/clusters.txt");
-  service._initialize_cluster_map(cluster_adresses);
-
   std::unique_ptr<Server> server(builder.BuildAndStart());
   std::cout << "[Server] Listening on " << server_address << std::endl;
 
-  // Initialize heartbeat
+  // Initialize heartbeat as a separate thread
   std::thread heartbeat(&TinyServer::_heartbeat, &service);
   server->Wait();
   service.stop();

@@ -1,6 +1,8 @@
 #include "HashRing.h"
 #include <unordered_set>
 
+HashRing::HashRing(int n) { virtual_nodes = n; }
+
 void HashRing::add_node(std::string address) {
   for (int i = 0; i < virtual_nodes; ++i) {
     std::string v_node_id = address + "#" + std::to_string(i);

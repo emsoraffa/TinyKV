@@ -5,6 +5,7 @@
 
 class HashRing {
 public:
+  HashRing(int n = 20);
   void add_node(std::string address);
 
   void remove_node(std::string address);
