@@ -12,7 +12,7 @@ public:
   bool put(std::string key, std::string val, std::string sender_id,
            int replication_factor = 3, int64_t timestamp = 0);
 
-  void get(std::string key, std::string sender_id);
+  std::string get(std::string key, std::string sender_id);
 
 private:
   std::unique_ptr<tinykv::TinyKV::Stub> stub_;

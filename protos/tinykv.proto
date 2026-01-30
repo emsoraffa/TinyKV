@@ -37,4 +37,5 @@ message GetRequest {
 
 message GetResponse {
   string val = 1;
+  bool operation_success = 2;
 }

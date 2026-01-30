@@ -50,7 +50,7 @@ bool Client::put(std::string key, std::string val, std::string sender_id,
     return false;
   }
 }
-void Client::get(std::string key, std::string sender_id) {
+std::string Client::get(std::string key, std::string sender_id) {
   GetRequest request;
   request.set_key(key);
   request.set_sender_id(sender_id);
@@ -63,7 +63,9 @@ void Client::get(std::string key, std::string sender_id) {
   if (status.ok()) {
     std::cout << "[Client] GetRequest success. Value is: " << reply.val()
               << std::endl;
+    return reply.val();
   } else {
-    std::cout << "[Client] PutRequest failed." << std::endl;
+    std::cout << "[Client] GetRequest failed." << std::endl;
+    return "";
   }
 }

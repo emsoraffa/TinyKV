@@ -11,8 +11,9 @@ target_include_directories(tinykv_client PRIVATE client)
 # --- SERVER EXECUTABLE ---
 add_executable(tinykv_server
     server/Server.cpp
-    client/Client.cpp  # Compile Client logic into server for Heartbeats
-    Utils.cpp          # Compile Utils for config loading
+    server/HashRing.cpp
+    client/Client.cpp
+    Utils.cpp
 )
 target_link_libraries(tinykv_server PRIVATE tinykv_proto_lib)
 

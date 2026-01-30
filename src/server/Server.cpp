@@ -79,7 +79,8 @@ public:
 
       if (!isOwner) {
         // pass request on to owner
-        forward_to_owner(request, owner_address);
+        bool status = forward_put_to_owner(request, owner_address);
+        reply->set_operation_success(status);
         return Status::OK;
       }
 
@@ -112,6 +113,17 @@ public:
 
     if (request->sender_id() != "client") {
       update_last_seen(request->sender_id());
+    }
+
+    std::string owner_address = hash_ring.get_owner(request->key());
+
+    if (owner_address != self_address) {
+      std::string val = forward_get_to_owner(request, owner_address);
+
+      reply->set_val(val);
+      reply->set_operation_success(true);
+
+      return Status::OK;
     }
 
     kv_mutex.lock();
@@ -267,10 +279,17 @@ private:
   /*
    * Hands off a request to owner node
    */
-  bool forward_to_owner(const PutRequest *request, std::string owner_address) {
+  bool forward_put_to_owner(const PutRequest *request,
+                            std::string owner_address) {
     Client *client = cluster_map[owner_address].get();
     return client->put(request->key(), request->val(), "client",
                        request->replication_factor());
+  }
+
+  std::string forward_get_to_owner(const GetRequest *request,
+                                   std::string owner_address) {
+    Client *client = cluster_map[owner_address].get();
+    return client->get(request->key(), "client");
   }
 
   void _build_hash_ring() {
