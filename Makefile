@@ -30,7 +30,7 @@ resilience:
 
 # Run a manual shell to play with the CLI
 cli:
-	docker run -it --rm --network tinykv-net tinykv ./build/src/tinykv_client tinykv-node1:50051 help
+	docker run -it --rm --network tinykv-net tinykv /bin/bash
 
 test:
 	@chmod +x scripts/smoke_test.sh
