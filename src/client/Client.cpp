@@ -65,7 +65,6 @@ Val_TS Client::get(std::string key, std::string sender_id, int quorum_size) {
   Status status = stub_->Get(&context, request, &reply);
 
   if (status.ok()) {
-    // Return {Value, Timestamp}
     return {reply.val(), reply.timestamp()};
   } else {
     std::cerr << "[Client] GetRequest failed." << std::endl;

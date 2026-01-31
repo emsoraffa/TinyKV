@@ -46,7 +46,7 @@ std::vector<std::string> HashRing::get_owner_and_neighbours(std::string key,
     if (node_list.size() >= n)
       break;
 
-    // Wrap around
+    // Wrap around the ring
     if (it == hash_ring.end())
       it = hash_ring.begin();
 

@@ -60,7 +60,6 @@ int main(int argc, char *argv[]) {
       }
       int count = std::stoi(argv[3]);
       int rf = std::stoi(argv[4]);
-      // Default to 10 threads if not specified
       int threads = (argc >= 6) ? std::stoi(argv[5]) : 10;
 
       RunBenchmark(client, count, rf, threads);

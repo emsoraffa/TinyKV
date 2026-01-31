@@ -29,7 +29,6 @@ public:
   TinyServer(std::string port) {
     this->port = port;
 
-    // Load clusters
     std::vector<std::string> cluster_adresses =
         LoadClusterConfig("config/clusters.txt");
     _initialize_cluster_map(cluster_adresses);
@@ -53,11 +52,12 @@ public:
    * The put function takes requests from a client or a peer node.
    *
    * If the request is from the client we find the rightful owner and forward
-   * the request without changing the sender_id. If the node is the owner then
-   * it will do a flight check and proceed to replicate and write the data
+   * the request without changing the sender_id.
+   *
+   * If the node is the owner then it will confirm theres enough live nodes
+   * available and proceed to replicate and write the data
    *
    * If the request is from a peer node, we simply perform a write
-   *
    */
   Status Put(ServerContext *context, const PutRequest *request,
              PutResponse *reply) override {
@@ -68,7 +68,7 @@ public:
               << " sender_id: " << request->sender_id() << std::endl;
 
     if (request->sender_id() != "client") {
-      // Request is from peer node, we backup the data
+      // Request is from peer node,
       update_last_seen(request->sender_id());
       write(request->key(), request->val(), request->timestamp());
       reply->set_operation_success(true);
@@ -76,6 +76,7 @@ public:
     }
 
     else {
+      // Request is from client
       std::string owner_address = hash_ring.get_owner(request->key());
       bool isOwner = (owner_address == self_address);
 
@@ -85,7 +86,6 @@ public:
         reply->set_operation_success(status);
         return Status::OK;
       }
-
       // We are the owner
 
       // Ensure enough nodes are available for replication

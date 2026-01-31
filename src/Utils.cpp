@@ -36,7 +36,6 @@ void RunBenchmark(Client &client, int total_ops, int rf, int num_threads) {
   std::atomic<int> completed_ops{0};
   std::vector<std::thread> threads;
 
-  // Ops per thread
   int ops_per_thread = total_ops / num_threads;
 
   auto start_total = std::chrono::high_resolution_clock::now();
@@ -44,8 +43,6 @@ void RunBenchmark(Client &client, int total_ops, int rf, int num_threads) {
   for (int t = 0; t < num_threads; ++t) {
     threads.emplace_back([&client, t, ops_per_thread, rf, &completed_ops]() {
       for (int i = 0; i < ops_per_thread; ++i) {
-        // Unique key per thread to avoid excessive lock contention on the same
-        // key
         std::string key =
             "bench_t" + std::to_string(t) + "_" + std::to_string(i);
         std::string val = "x";
@@ -56,7 +53,6 @@ void RunBenchmark(Client &client, int total_ops, int rf, int num_threads) {
     });
   }
 
-  // Progress bar in main thread
   while (completed_ops < total_ops) {
     std::this_thread::sleep_for(std::chrono::milliseconds(500));
     std::cout << "\rProgress: " << completed_ops << " / " << total_ops
