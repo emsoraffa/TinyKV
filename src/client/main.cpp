@@ -27,6 +27,10 @@ int main(int argc, char *argv[]) {
   Client client(channel);
 
   try {
+    if (command == "help" || command == "--help") {
+      print_usage();
+      return 0;
+    }
     if (command == "ping") {
       return client.ping(true, "client") ? 0 : 1;
     } else if (command == "put") {

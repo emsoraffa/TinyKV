@@ -18,12 +18,12 @@ down:
 logs:
 	docker-compose logs -f
 
-# Run the performance benchmark
+# Run the performance benchmark with default values.
 benchmark:
 	@chmod +x scripts/benchmark.sh
 	./scripts/benchmark.sh
 
-# Run the resilience test (Partition Tolerance)
+# Run the resilience test
 resilience:
 	@chmod +x scripts/resilience_test.sh
 	./scripts/resilience_test.sh
