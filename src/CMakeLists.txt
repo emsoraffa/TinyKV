@@ -2,10 +2,11 @@
 add_executable(tinykv_client
     client/main.cpp
     client/Client.cpp
+    Utils.cpp
 )
 # Link to the library defined in the Root CMake
 target_link_libraries(tinykv_client PRIVATE tinykv_proto_lib)
-target_include_directories(tinykv_client PRIVATE client)
+target_include_directories(tinykv_client PRIVATE client .)
 
 
 # --- SERVER EXECUTABLE ---
