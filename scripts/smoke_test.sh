@@ -2,7 +2,7 @@
 # scripts/smoke_test.sh
 
 # Run inside the network so we can reach nodes by name
-CLIENT="docker run --rm --network tinykv-net tinykv ./build/src/tinykv_client"
+CLIENT="docker run --rm --network tinykv-net tinykv:latest ./build/src/tinykv_client"
 NODE1="tinykv-node1:50051"
 NODE2="tinykv-node2:50052"
 

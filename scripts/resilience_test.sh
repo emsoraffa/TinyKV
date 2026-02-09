@@ -3,7 +3,7 @@
 # We run the client INSIDE the 'tinykv-net' network.
 # This allows us to talk to 'tinykv-node1' directly by name.
 # This works on Mac, Linux, and Windows reliably.
-CLIENT="docker run --rm --network tinykv-net tinykv ./build/src/tinykv_client"
+CLIENT="docker run --rm --network tinykv-net tinykv:latest ./build/src/tinykv_client"
 NODE1="tinykv-node1:50051"
 
 KEY="survival_key"
