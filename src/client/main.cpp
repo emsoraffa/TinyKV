@@ -1,5 +1,5 @@
 #include "Client.h"
-#include "Utils.h" // Include Utils
+#include "Utils.h"
 #include <grpcpp/grpcpp.h>
 #include <iostream>
 #include <string>
